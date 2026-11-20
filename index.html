@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Note Me: quick-capture notes that title themselves, with stickers, notebooks and a calendar.">
+<meta name="description" content="Noted: quick-capture notes that title themselves, with stickers, notebooks and a calendar.">
 <style>html,body{margin:0}[hidden]{display:none!important}</style>
-<title>Note Me</title>
+<title>Noted</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Caveat&family=Kalam&family=Patrick+Hand&family=Playfair+Display&family=Lora&family=Roboto+Slab&family=Space+Mono&family=Oswald&family=Pacifico&display=swap">
 <style>
 /* Three columns. Left: search, recents, categories. Middle: the open note, calendar or page. Right: Coming up only. Bars resize and collapse. */
@@ -309,7 +309,7 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
     var s = blank();
     s.cats = [{ id: "c1", name: "School" }, { id: "c2", name: "Personal" }];
     s.nextId = 10;
-    s.notes = [{ id: "n1", cat: "c2", title: "Welcome to Note Me", auto: false, locked: false, t: Date.now(), body: "Type anything and the title writes itself.\n\nSelect a few words and press the sticker shortcut. A sticker appears beside the page and connects to those words.\n\nThe free plan holds 10 notes." }];
+    s.notes = [{ id: "n1", cat: "c2", title: "Welcome to Noted", auto: false, locked: false, t: Date.now(), body: "Type anything and the title writes itself.\n\nSelect a few words and press the sticker shortcut. A sticker appears beside the page and connects to those words.\n\nThe free plan holds 10 notes." }];
     return normalize(s);
   }
 
@@ -682,7 +682,7 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
   /* ---------- Left column ---------- */
   function renderSide() {
     var side = $("side"); side.textContent = "";
-    side.appendChild(h("div", { class: "brand" }, [h("span", { text: "Note Me" }), h("span", null, [
+    side.appendChild(h("div", { class: "brand" }, [h("span", { text: "Noted" }), h("span", null, [
       ibtn(S.theme === "light" ? "moon" : "sun", S.theme === "light" ? "Switch to dark mode" : "Switch to light mode", function () { S.theme = S.theme === "light" ? "dark" : "light"; save(); render(); }),
       ibtn("plus", "New note", newNote),
       ibtn("panelL", "Hide left bar", function () { collapse("lc", true); }, "cbtn")
@@ -817,7 +817,7 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
     var err = h("div", { class: "err", text: "Enter a valid email.", hidden: true });
     var inp = h("input", { type: "email", placeholder: "you@example.com", "aria-label": "Email", autocomplete: "email" });
     var form = h("form", { class: "login-card" }, [
-      h("h1", { text: "Note Me" }),
+      h("h1", { text: "Noted" }),
       h("div", { class: "muted", text: "Sign in to open your notes." }),
       inp, err,
       h("button", { class: "btn-sub", type: "submit", text: "Continue" }),
