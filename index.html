@@ -53,6 +53,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
 .shell { max-width: 1500px; margin: 0 auto; display: grid; grid-template-columns: var(--lw, 236px) var(--gl, 16px) minmax(0, 1fr) var(--gr, 16px) var(--rw, 290px); height: 100%; }
 .side, .rail, main { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.side { grid-column: 1; grid-row: 1; }
+#gripL { grid-column: 2; grid-row: 1; }
+main { grid-column: 3; grid-row: 1; }
+#gripR { grid-column: 4; grid-row: 1; }
+.rail { grid-column: 5; grid-row: 1; }
 .grip { position: relative; cursor: col-resize; touch-action: none; }
 .grip::after { content: ""; position: absolute; top: 12%; bottom: 12%; left: 50%; width: 3px; margin-left: -1px; border-radius: 3px; background: var(--accent); opacity: 0; transition: opacity 120ms; }
 .grip:hover::after, .grip.drag::after, .grip:focus-visible::after { opacity: 0.55; }
@@ -255,10 +260,11 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 216px minmax(0, 1fr); height: auto; column-gap: 14px; }
   .grip { display: none; }
-  .side { grid-row: 1 / span 2; position: sticky; top: 16px; max-height: calc(100vh - 32px); }
+  .side { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 16px; max-height: calc(100vh - 32px); }
   .shell.lc .side, .shell.rc .rail { display: flex; }
   .rail, main { overflow: visible; }
-  .rail { grid-column: 2; }
+  main { grid-column: 2; grid-row: 1; }
+  .rail { grid-column: 2; grid-row: 2; }
   .cbtn, .expand { display: none; }
 }
 @media (max-width: 760px) {
