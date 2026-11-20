@@ -294,6 +294,7 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
 </div>
 <div id="toast" class="toast" hidden></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function () {
   var KEY = "noteme-v5";
@@ -320,8 +321,11 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
   }
 
   var ACCT_KEY = "noteme-acct";
+  var SB_URL = "https://jjcbtrsppxnafdncenwn.supabase.co", SB_KEY = "sb_publishable_VAFAo6qoHllPiCP-Yrp1uA_xJcZ0omu";
+  var SB = null;
+  try { if (window.supabase && window.supabase.createClient) SB = window.supabase.createClient(SB_URL, SB_KEY); } catch (e) {}
   var acct = null;
-  try { acct = localStorage.getItem(ACCT_KEY); } catch (e) {}
+  if (!SB) { try { acct = localStorage.getItem(ACCT_KEY); } catch (e) {} }
   function dataKey() { return KEY + ":" + acct; }
   var S = acct ? load() : blank();
   var ui = { view: "note", id: null, cat: "all", q: "", unlocked: false, eventId: null, renameCat: null, capturing: false, pinErr: false, cur: null, gErr: "", gBusy: false };
@@ -818,37 +822,92 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
     render(); closeSide();
   }
 
-  function showLogin() {
+  function startSession(email) {
+    acct = email;
+    S = load(); save();
+    ui.view = "note"; ui.cat = "all"; ui.q = ""; ui.unlocked = false; ui.eventId = null; ui.gErr = "";
+    var f = firstNote(); ui.id = f ? f.id : null;
+    var ov = document.getElementById("login"); if (ov) ov.remove();
+    render(); if (S.gOn) fetchGcal();
+  }
+  function authMsg(m) {
+    m = String(m || "");
+    if (/invalid login/i.test(m)) return "Wrong email or password.";
+    if (/not confirmed/i.test(m)) return "Verify your email first. Check your inbox for the link.";
+    if (/rate limit|too many/i.test(m)) return "Too many emails sent. Wait a few minutes and try again.";
+    if (/at least|weak|short/i.test(m)) return "Password must be at least 8 characters.";
+    return m || "Something went wrong. Try again.";
+  }
+  function showLogin(startMode) {
     if (document.getElementById("login")) return;
-    var err = h("div", { class: "err", text: "Enter a valid email.", hidden: true });
-    var inp = h("input", { type: "email", placeholder: "you@example.com", "aria-label": "Email", autocomplete: "email" });
-    var form = h("form", { class: "login-card" }, [
-      h("h1", { text: "Noted" }),
-      h("div", { class: "muted", text: "Sign in to open your notes." }),
-      inp, err,
-      h("button", { class: "btn-sub", type: "submit", text: "Continue" }),
-      h("div", { class: "plan-s", text: "Demo sign-in. Each email gets its own private notes on this device. Real accounts and passwords come with the backend." })
-    ]);
+    var mode = startMode || "in";
+    var ov = h("div", { id: "login", class: "login", role: "dialog", "aria-modal": "true", "aria-label": "Sign in" });
+    document.body.appendChild(ov);
+    function draw(note) {
+      ov.textContent = "";
+      var err = h("div", { class: "err", hidden: true });
+      var ok = h("div", { class: "plan-s", hidden: true });
+      var email = h("input", { type: "email", placeholder: "you@example.com", "aria-label": "Email", autocomplete: "email" });
+      var pw = h("input", { type: "password", placeholder: mode === "up" ? "Password (8+ characters)" : "Password", "aria-label": "Password", autocomplete: mode === "up" ? "new-password" : "current-password" });
+      var btn = h("button", { class: "btn-sub", type: "submit", text: mode === "up" ? "Create account" : mode === "reset" ? "Send reset link" : "Sign in" });
+      var kids = [h("h1", { text: "Noted" }), h("div", { class: "muted", text: mode === "up" ? "Create your account." : mode === "reset" ? "We will email you a reset link." : "Sign in to open your notes." }), email];
+      if (mode !== "reset") kids.push(pw);
+      kids.push(err, ok, btn);
+      if (mode === "in") kids.push(h("button", { class: "link", type: "button", text: "Forgot password?", onclick: function () { mode = "reset"; draw(); } }));
+      kids.push(h("button", { class: "link", type: "button", text: mode === "up" ? "Have an account? Sign in" : mode === "reset" ? "Back to sign in" : "New here? Create an account", onclick: function () { mode = mode === "in" ? "up" : "in"; draw(); } }));
+      var form = h("form", { class: "login-card" }, kids);
+      if (note) { ok.textContent = note; ok.hidden = false; }
+      function fail(t) { err.textContent = t; err.hidden = false; ok.hidden = true; btn.disabled = false; }
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var v = email.value.trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return fail("Enter a valid email.");
+        if (!SB) { try { localStorage.setItem(ACCT_KEY, v); } catch (x) {} return startSession(v); }
+        if (mode !== "reset" && pw.value.length < 8) return fail("Password must be at least 8 characters.");
+        err.hidden = true; btn.disabled = true;
+        var redirect = location.origin + location.pathname;
+        var req;
+        if (mode === "up") req = SB.auth.signUp({ email: v, password: pw.value, options: { emailRedirectTo: redirect } });
+        else if (mode === "reset") req = SB.auth.resetPasswordForEmail(v, { redirectTo: redirect });
+        else req = SB.auth.signInWithPassword({ email: v, password: pw.value });
+        req.then(function (r) {
+          if (r.error) return fail(authMsg(r.error.message));
+          if (mode === "up") {
+            if (r.data && r.data.session) return startSession(v);
+            mode = "in"; return draw("Check your email for a verification link, then sign in.");
+          }
+          if (mode === "reset") { mode = "in"; return draw("Reset link sent. Check your email."); }
+          startSession(((r.data.user && r.data.user.email) || v).toLowerCase());
+        }).catch(function () { fail("Could not reach the server. Check your connection."); });
+      });
+      ov.appendChild(form);
+      setTimeout(function () { email.focus(); }, 0);
+    }
+    draw();
+  }
+  function showNewPassword() {
+    var old = document.getElementById("login"); if (old) old.remove();
+    var pw = h("input", { type: "password", placeholder: "New password (8+ characters)", "aria-label": "New password", autocomplete: "new-password" });
+    var err = h("div", { class: "err", hidden: true });
+    var form = h("form", { class: "login-card" }, [h("h1", { text: "Noted" }), h("div", { class: "muted", text: "Choose a new password." }), pw, err, h("button", { class: "btn-sub", type: "submit", text: "Save password" })]);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var v = inp.value.trim().toLowerCase();
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { err.hidden = false; return; }
-      acct = v;
-      try { localStorage.setItem(ACCT_KEY, acct); } catch (x) {}
-      S = load(); save();
-      ui.view = "note"; ui.cat = "all"; ui.q = ""; ui.unlocked = false; ui.eventId = null; ui.gErr = "";
-      var f = firstNote(); ui.id = f ? f.id : null;
-      var ov = document.getElementById("login"); if (ov) ov.remove();
-      render(); if (S.gOn) fetchGcal();
+      if (pw.value.length < 8) { err.textContent = "Password must be at least 8 characters."; err.hidden = false; return; }
+      SB.auth.updateUser({ password: pw.value }).then(function (r) {
+        if (r.error) { err.textContent = authMsg(r.error.message); err.hidden = false; return; }
+        try { history.replaceState(null, "", location.pathname); } catch (x) {}
+        SB.auth.getSession().then(function (g) { var u = g.data && g.data.session && g.data.session.user; if (u) startSession(u.email.toLowerCase()); else { var o = document.getElementById("login"); if (o) o.remove(); showLogin(); } });
+      });
     });
-    var ov = h("div", { id: "login", class: "login", role: "dialog", "aria-modal": "true", "aria-label": "Sign in" }, [form]);
+    var ov = h("div", { id: "login", class: "login", role: "dialog", "aria-modal": "true", "aria-label": "New password" }, [form]);
     document.body.appendChild(ov);
-    setTimeout(function () { inp.focus(); }, 0);
+    setTimeout(function () { pw.focus(); }, 0);
   }
   function signOut() {
     save();
     acct = null;
     try { localStorage.removeItem(ACCT_KEY); } catch (e) {}
+    if (SB) { try { SB.auth.signOut(); } catch (e) {} }
     S = blank(); ui.unlocked = false; ui.view = "note"; ui.cat = "all"; ui.id = null; ui.q = ""; ui.eventId = null; ui.gErr = "";
     $("toast").hidden = true;
     render(); showLogin();
@@ -1354,7 +1413,18 @@ textarea.body::placeholder, .title-in::placeholder { color: var(--faint); }
 
   if (acct) { var f0 = firstNote(); ui.id = f0 ? f0.id : null; }
   render();
-  if (!acct) showLogin();
+  if (SB) {
+    var recovering = /type=recovery/.test(location.hash);
+    SB.auth.onAuthStateChange(function (ev) { if (ev === "PASSWORD_RECOVERY") { recovering = true; showNewPassword(); } });
+    SB.auth.getSession().then(function (g) {
+      var u = g && g.data && g.data.session && g.data.session.user;
+      if (recovering) { showNewPassword(); return; }
+      if (u && u.email) {
+        try { if (/access_token|type=signup/.test(location.hash)) history.replaceState(null, "", location.pathname); } catch (x) {}
+        startSession(u.email.toLowerCase());
+      } else showLogin();
+    }).catch(function () { showLogin(); });
+  } else if (!acct) showLogin();
 
   if (window.claude && window.claude.use) {
     window.claude.use("mcp").then(function (m) {
